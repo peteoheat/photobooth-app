@@ -4,6 +4,7 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 
 from photobooth.appconfig import AppConfig
+from photobooth.container import container
 
 
 def test_config_endpoints_ui(client_authenticated: TestClient):
@@ -55,3 +56,44 @@ def test_config_reset(mock_remove, client_authenticated: TestClient):
 
     # check os.remove was invoked
     mock_remove.assert_called()
+
+
+@patch("photobooth.routers.api_admin.config.platform.system", return_value="Linux")
+def test_config_patch_event_changed_restarts_on_linux(mock_platform, client_authenticated: TestClient):
+    config_dict = json.loads(AppConfig().model_dump_json(context={"secrets_is_allowed": True}))
+    config_dict["common"]["event_name"] = "test_event_restart"
+
+    with patch.object(container.system_service, "util_systemd_control") as mock_restart:
+        response = client_authenticated.patch("/admin/config/app", json=config_dict)
+        assert response.status_code == 200
+
+        mock_restart.assert_called_once_with("restart")
+
+    AppConfig().deleteconfig()
+
+
+@patch("photobooth.routers.api_admin.config.platform.system", return_value="Windows")
+def test_config_patch_event_changed_no_restart_on_windows(mock_platform, client_authenticated: TestClient):
+    config_dict = json.loads(AppConfig().model_dump_json(context={"secrets_is_allowed": True}))
+    config_dict["common"]["event_name"] = "test_event_restart"
+
+    with patch.object(container.system_service, "util_systemd_control") as mock_restart:
+        response = client_authenticated.patch("/admin/config/app", json=config_dict)
+        assert response.status_code == 200
+
+        mock_restart.assert_not_called()
+
+    AppConfig().deleteconfig()
+
+
+@patch("photobooth.routers.api_admin.config.platform.system", return_value="Linux")
+def test_config_patch_event_unchanged_no_restart(mock_platform, client_authenticated: TestClient):
+    config_dict = json.loads(AppConfig().model_dump_json(context={"secrets_is_allowed": True}))
+
+    with patch.object(container.system_service, "util_systemd_control") as mock_restart:
+        response = client_authenticated.patch("/admin/config/app", json=config_dict)
+        assert response.status_code == 200
+
+        mock_restart.assert_not_called()
+
+    AppConfig().deleteconfig()

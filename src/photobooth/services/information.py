@@ -11,7 +11,7 @@ import psutil
 from sqlalchemy import CursorResult, delete, func, select
 from sqlalchemy.orm import Session
 
-from .. import CACHE_PATH, MEDIA_PATH, RECYCLE_PATH, TMP_PATH
+from .. import ACTIVE_EVENT_NAME, CACHE_PATH, MEDIA_PATH, RECYCLE_PATH, TMP_PATH
 from ..database.database import engine
 from ..database.models import Cacheditem, Mediaitem, ShareLimits, UsageStats
 from ..database.schemas import ShareLimitsPublic, UsageStatsPublic
@@ -159,6 +159,7 @@ class InformationService(BaseService):
 
     def _gather_mediacollection(self) -> dict[str, Any]:
         out = {}
+        out["active_event"] = ACTIVE_EVENT_NAME or "<default>"
         with Session(engine) as session:
             statement = select(func.count(Mediaitem.id))
             out["db_mediaitems"] = session.scalars(statement).one()

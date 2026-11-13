@@ -50,3 +50,30 @@ def test_init_userdata_after_init_there_is_demoassets_symlink():
         assert target.is_junction()
     else:
         assert target.is_symlink()
+
+
+def test_sanitize_event_name():
+    from photobooth import sanitize_event_name
+
+    assert sanitize_event_name("Smith-Wedding_2026") == "Smith-Wedding_2026"
+    assert sanitize_event_name(" Smith Wedding ") == "Smith_Wedding"
+    assert sanitize_event_name("../evil") == "___evil"
+    assert sanitize_event_name("") == ""
+    assert sanitize_event_name(None) == ""
+
+
+def test_read_active_event_name(tmp_path, monkeypatch):
+    from photobooth import _read_active_event_name
+
+    monkeypatch.chdir(tmp_path)
+
+    # no config file yet
+    assert _read_active_event_name() == ""
+
+    Path("config").mkdir()
+    Path("config/config.json").write_text('{"common": {"event_name": "Smith Wedding"}}', encoding="utf-8")
+    assert _read_active_event_name() == "Smith_Wedding"
+
+    # broken config falls back to default location
+    Path("config/config.json").write_text("{broken", encoding="utf-8")
+    assert _read_active_event_name() == ""
